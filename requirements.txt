@@ -1,0 +1,17 @@
+# LangChain 1.0 核心（Agent + 工具）
+langchain>=1.0.0
+# LangChain OpenAI 集成（用 ChatOpenAI 对接 DeepSeek，DeepSeek API 是 OpenAI 兼容的）
+langchain-openai>=0.3.0
+# ChromaDB 向量库（持久化模式，存磁盘）
+langchain-chroma>=0.2.0
+# HuggingFace 本地 Embedding（免费、离线，替代 OpenAI Embedding）
+langchain-huggingface>=0.1.0
+sentence-transformers>=3.0.0
+# Chainlit 聊天 UI
+chainlit>=2.0.0
+# LangChain 经典模块（RecursiveCharacterTextSplitter 等在 1.0 被移到此包）
+langchain-classic>=1.0.0
+# Streamlit 管理面板
+streamlit>=1.40.0
+# 从 .env 文件加载环境变量
+python-dotenv>=1.0.0

@@ -1,0 +1,31 @@
+{
+  "llm": {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "base_url": "https://api.deepseek.com",
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "temperature": 0.0
+  },
+  "embedding": {
+    "provider": "huggingface",
+    "model_name": "all-MiniLM-L6-v2",
+    "hf_endpoint": "https://hf-mirror.com"
+  },
+  "knowledge_base": {
+    "persist_directory": "~/.chromadb_rag/v1",
+    "chunk_size": 500,
+    "chunk_overlap": 50
+  },
+  "documents": [],
+  "tools": {
+    "search_knowledge_base": {
+      "enabled": true,
+      "description": "在知识库中搜索与用户问题相关的文档。每次回答用户问题前，都应先调用此工具进行检索。"
+    }
+  },
+  "agent": {
+    "force_search_first": true,
+    "allow_external_knowledge": true,
+    "system_prompt_extra": ""
+  }
+}

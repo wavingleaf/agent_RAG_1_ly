@@ -1,0 +1,21 @@
+# API 密钥
+.env
+
+# 向量库持久化数据（本地索引，别人 clone 后自行重建）
+chroma_db/
+chroma_db_v1/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# HuggingFace 缓存
+.huggingface/
+
+# IDE
+.vscode/
+.idea/
+/.chainlit
+/test_chroma_format
