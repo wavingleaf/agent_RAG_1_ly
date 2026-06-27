@@ -8,7 +8,6 @@
 """
 
 import argparse
-import json
 import os
 import sys
 from pathlib import Path
@@ -18,39 +17,18 @@ if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from dotenv import load_dotenv
-from langchain_chroma import Chroma
 from langchain_classic.text_splitter import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
+
+from src.config import load_config, PROJECT_DIR
+from src.embedding import create_embedding
+from src.knowledge.store import create_vectorstore
 
 # ── 0. 路径与配置 ──────────────────────────────────────────────────
 
-PROJECT_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = PROJECT_DIR / "config.json"
 MOD_SOURCE_DIR = PROJECT_DIR.parent / "好mod全部代码供观看"  # 默认 mod 源码目录
 
 load_dotenv(PROJECT_DIR / ".env")
-
-
-def load_config():
-    with open(CONFIG_PATH, encoding="utf-8") as f:
-        return json.load(f)
-
-
-def get_embedding(cfg):
-    emb_cfg = cfg.get("embedding", {})
-    endpoint = emb_cfg.get("hf_endpoint", "")
-    if endpoint and not os.getenv("HF_ENDPOINT"):
-        os.environ["HF_ENDPOINT"] = endpoint
-    # 强制离线模式：模型已在首次运行时缓存到本地（~80MB），无需每次联网检查
-    os.environ.setdefault("HF_HUB_OFFLINE", "1")
-
-    # GPU 优先：sentence-transformers 检测到 CUDA 时会自动用 GPU
-    # RTX 4060 下 Embedding 推理比 CPU 快 20-50 倍
-    model_kwargs = {"local_files_only": True}
-    return HuggingFaceEmbeddings(
-        model_name=emb_cfg.get("model_name", "all-MiniLM-L6-v2"),
-        model_kwargs=model_kwargs,
-    )
 
 
 # ── 1. 核心逻辑 ───────────────────────────────────────────────────
@@ -78,7 +56,7 @@ def read_file_content(filepath: Path) -> str | None:
 def import_mod(
     mod_name: str,
     mod_dir: Path,
-    vectorstore: Chroma,
+    vectorstore,
     splitter: RecursiveCharacterTextSplitter,
     dry_run: bool = False,
 ) -> dict:
@@ -158,10 +136,12 @@ def main():
     )
 
     # 初始化向量库
-    embedding = get_embedding(cfg)
-    pd = kb_cfg.get("persist_directory", "./chroma_db")
-    persist_dir = str(Path(pd).expanduser()) if pd.startswith("~") else str(PROJECT_DIR / pd)
-    vectorstore = Chroma(persist_directory=persist_dir, embedding_function=embedding)
+    # 批量导入时强制离线模式：模型已在首次运行时缓存（~80MB），无需每次联网检查
+    # GPU 优先：sentence-transformers 检测到 CUDA 时会自动用 GPU
+    # RTX 4060 下 Embedding 推理比 CPU 快 20-50 倍
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
+    embedding = create_embedding(cfg, model_kwargs={"local_files_only": True})
+    vectorstore = create_vectorstore(cfg, embedding)
 
     batch_count = vectorstore._collection.count() if vectorstore._collection else 0
     print(f"📚 导入前知识库片段数: {batch_count}")

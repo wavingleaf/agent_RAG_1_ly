@@ -70,7 +70,7 @@ docker exec -it rag-admin python 批量导入mod代码.py --source /mod_source
 # → 管理面板 http://localhost:8501
 ```
 
-详细 Docker 操作参考：[Docker操作速查_ly.md](Docker操作速查_ly.md)。
+详细操作参考：[项目操作速查_ly.md](项目操作速查_ly.md)。
 
 ---
 
@@ -122,7 +122,7 @@ agent_RAG_1_ly/
 ├── CONTEXT.md              # 领域术语与设计决策
 ├── TODO.md                 # 待办清单（含各阶段路线图）
 ├── src架构设计_ly.md        # 源代码架构设计与演进路线
-├── Docker操作速查_ly.md     # Docker 日常操作命令大全
+├── 项目操作速查_ly.md     # 项目日常操作命令大全
 ├── 参考项目对比分析_ly.md    # 参考项目 SuperMew 对比分析
 ├── 踩坑记录/                # 搭建过程中踩过的技术坑（9 个，独立分项）
 ├── chroma_db/              # 向量库（本地宿主机模式；Docker 用 volume）

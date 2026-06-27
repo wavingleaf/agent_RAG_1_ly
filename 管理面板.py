@@ -27,16 +27,15 @@ os.environ.setdefault("STREAMLIT_SERVER_FILE_WATCHER_TYPE", "none")
 
 import streamlit as st
 from dotenv import load_dotenv
-from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
 
 # LangChain 1.0 把 RecursiveCharacterTextSplitter 移到了 langchain-classic 包
 from langchain_classic.text_splitter import RecursiveCharacterTextSplitter
 
-# ── 0. 项目路径 ────────────────────────────────────────────────────
+from src.config import load_config, PROJECT_DIR, CONFIG_PATH
+from src.embedding import create_embedding
+from src.knowledge.store import create_vectorstore, get_chroma_dir, get_doc_count
 
-PROJECT_DIR = Path(__file__).resolve().parent
-CONFIG_PATH = PROJECT_DIR / "config.json"
+# ── 0. 项目路径 ────────────────────────────────────────────────────
 
 load_dotenv(PROJECT_DIR / ".env")
 
@@ -49,42 +48,10 @@ st.caption("修改配置后点「保存」，然后重启聊天端使其生效")
 # ── 辅助函数 ──────────────────────────────────────────────────────
 
 
-def load_config() -> dict:
-    if CONFIG_PATH.exists():
-        with open(CONFIG_PATH, encoding="utf-8") as f:
-            return json.load(f)
-    return {}
-
-
 def save_config(cfg: dict) -> None:
+    """保存配置到 config.json（管理面板独有逻辑）"""
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(cfg, f, ensure_ascii=False, indent=2)
-
-
-def get_embedding(cfg: dict):
-    """根据配置创建 Embedding 实例（用于文档索引 + 状态查询）"""
-    emb_cfg = cfg.get("embedding", {})
-    endpoint = emb_cfg.get("hf_endpoint", "")
-    if endpoint and not os.getenv("HF_ENDPOINT"):
-        os.environ["HF_ENDPOINT"] = endpoint
-    return HuggingFaceEmbeddings(model_name=emb_cfg.get("model_name", "all-MiniLM-L6-v2"))
-
-
-def get_chroma_dir(cfg: dict) -> str:
-    kb = cfg.get("knowledge_base", {})
-    pd = kb.get("persist_directory", "./chroma_db")
-    # 支持 ~ 展开（用于中文路径环境下把向量库放到 ASCII 路径）
-    return str(Path(pd).expanduser()) if pd.startswith("~") else str(PROJECT_DIR / pd)
-
-
-def get_doc_count(cfg: dict) -> int:
-    """读取 ChromaDB 中当前文档片段数"""
-    try:
-        emb = get_embedding(cfg)
-        vs = Chroma(persist_directory=get_chroma_dir(cfg), embedding_function=emb)
-        return vs._collection.count() if vs._collection else 0
-    except Exception:
-        return -1  # 表示无法读取（数据库还不存在等）
 
 
 # ── 加载当前配置 ──────────────────────────────────────────────────
@@ -200,8 +167,8 @@ with tabs[2]:
 
     if uploaded_files:
         if st.button("📥 切分并入库", type="primary"):
-            embedding = get_embedding(cfg)
-            vs = Chroma(persist_directory=get_chroma_dir(cfg), embedding_function=embedding)
+            embedding = create_embedding(cfg)
+            vs = create_vectorstore(cfg, embedding)
             splitter = RecursiveCharacterTextSplitter(
                 chunk_size=cfg["knowledge_base"]["chunk_size"],
                 chunk_overlap=cfg["knowledge_base"]["chunk_overlap"],
