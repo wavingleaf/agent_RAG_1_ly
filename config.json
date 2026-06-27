@@ -12,7 +12,7 @@
     "hf_endpoint": "https://hf-mirror.com"
   },
   "knowledge_base": {
-    "persist_directory": "~/.chromadb_rag/v1",
+    "persist_directory": "/app/chroma_data/v1",
     "chunk_size": 500,
     "chunk_overlap": 50
   },

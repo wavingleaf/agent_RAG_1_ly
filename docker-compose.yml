@@ -1,0 +1,74 @@
+# agent_RAG_1_ly 本地部署编排
+# 启动：docker compose up -d
+# 停止：docker compose down
+# 查看日志：docker compose logs -f chat
+
+services:
+  # ── Chainlit 聊天端 ──────────────────────────────────────
+  chat:
+    build: .
+    image: agent-rag-1-ly:latest
+    container_name: rag-chat
+    ports:
+      - "8000:8000"
+    volumes:
+      # 向量库持久化（存在宿主机，删容器不丢数据）
+      - chroma_data:/app/chroma_data
+      # config.json 挂载出来，方便在宿主机用管理面板改
+      - ./config.json:/app/config.json
+    env_file:
+      - .env
+    environment:
+      # ChromaDB 强制用挂载目录
+      - HF_HOME=/app/chroma_data/hf_cache
+    command: chainlit run app.py --host 0.0.0.0 --port 8000
+    # GPU 直通（仅 Linux + nvidia-container-toolkit 有效；
+    # Windows 上需 Docker Desktop + WSL2，会自动识别）
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # ── Streamlit 管理面板 ────────────────────────────────────
+  admin:
+    build: .
+    image: agent-rag-1-ly:latest
+    container_name: rag-admin
+    ports:
+      - "8501:8501"
+    volumes:
+      # 和聊天端共享同一个向量库
+      - chroma_data:/app/chroma_data
+      - ./config.json:/app/config.json
+      # Mod 源码（只读挂载，供批量导入脚本使用）
+      - ../好mod全部代码供观看:/mod_source:ro
+    env_file:
+      - .env
+    environment:
+      - HF_HOME=/app/chroma_data/hf_cache
+      - STREAMLIT_SERVER_FILE_WATCHER_TYPE=none
+    # streamlit run 只用 localhost 绑定即可（不需要外部访问时允许 0.0.0.0）
+    command: streamlit run 管理面板.py --server.port 8501 --server.address 0.0.0.0
+    # GPU 直通（与 chat 服务相同配置）
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  chroma_data:
+    # 向量库数据存在 Docker 管理的 volume 中
+    # 想指定宿主机路径可用 driver_opts：
+    # driver: local
+    # driver_opts:
+    #   type: none
+    #   o: bind
+    #   device: ./chroma_data

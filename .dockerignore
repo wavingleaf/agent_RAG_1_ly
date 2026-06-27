@@ -1,0 +1,34 @@
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# ChromaDB 持久化数据（通过 volume 挂载，不打包进镜像）
+chroma_db/
+chroma_data/
+
+# 环境变量（含 API Key，绝不能打包进镜像）
+.env
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 临时文件
+*.tmp
+*.log
+
+# 踩坑记录（纯文档，不需要在容器里）
+踩坑记录/
+
+# macOS
+.DS_Store
+Thumbs.db

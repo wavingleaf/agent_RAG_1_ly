@@ -52,7 +52,29 @@
 | 向量库 | 文档片段存储与检索 | ChromaDB（持久化） |
 | Agent 框架 | 思考→调工具→读结果→回答 循环 | LangChain 1.0 `create_agent` |
 
-## 快速开始
+## 快速开始（Docker，推荐）
+
+```bash
+cd agent_RAG_1_ly
+
+# 1. 确保 .env 已配置 API Key
+#    DEEPSEEK_API_KEY=sk-你的密钥
+
+# 2. 启动所有服务（后台运行）
+docker compose up -d
+
+# 3. 初次部署需导入数据（一次性操作）
+docker exec -it rag-admin python 批量导入mod代码.py --source /mod_source
+
+# → 聊天端 http://localhost:8000
+# → 管理面板 http://localhost:8501
+```
+
+详细 Docker 操作参考：[Docker操作速查_ly.md](Docker操作速查_ly.md)。
+
+---
+
+## 快速开始（裸 Python，备选）
 
 ```bash
 # 1. 安装依赖（Python ≥ 3.10）
@@ -83,21 +105,28 @@ python 启动rag助手.py
 
 ```
 agent_RAG_1_ly/
-├── app.py              # 聊天端（Chainlit）
-├── 管理面板.py          # 管理端（Streamlit）
-├── config.json         # 共享配置
-├── .env                # API Key（不提交）
+├── app.py                  # 聊天端（Chainlit）
+├── 管理面板.py              # 管理端（Streamlit）
+├── config.json             # 共享配置
+├── .env                    # API Key（不提交）
 ├── .env.example
 ├── requirements.txt
-├── 启动rag助手.py       # 双击启动聊天端
-├── 启动管理面板.py      # 双击启动管理面板
-├── 批量导入mod代码.py    # 批量导入 .lua 文件到向量库
+├── 启动rag助手.py           # 双击启动聊天端
+├── 启动管理面板.py          # 双击启动管理面板
+├── 批量导入mod代码.py        # 批量导入 .lua 文件到向量库
+├── Dockerfile              # Docker 镜像定义
+├── docker-compose.yml      # Docker 服务编排
+├── .dockerignore
 ├── .gitignore
-├── README.md           # 本文件
-├── CONTEXT.md          # 领域术语与设计决策
-├── TODO.md             # 待办清单
-├── 踩坑记录/            # 搭建过程中踩过的技术坑（9 个，独立分项）
-└── chroma_db/          # 向量库（本地索引，不提交 — 实际持久化在 ~/.chromadb_rag/v1）
+├── README.md               # 本文件
+├── CONTEXT.md              # 领域术语与设计决策
+├── TODO.md                 # 待办清单（含各阶段路线图）
+├── src架构设计_ly.md        # 源代码架构设计与演进路线
+├── Docker操作速查_ly.md     # Docker 日常操作命令大全
+├── 参考项目对比分析_ly.md    # 参考项目 SuperMew 对比分析
+├── 踩坑记录/                # 搭建过程中踩过的技术坑（9 个，独立分项）
+├── chroma_db/              # 向量库（本地宿主机模式；Docker 用 volume）
+└── src/                    # 共享源码（agent/ + knowledge/ 子包）
 ```
 
 ## 已知限制
