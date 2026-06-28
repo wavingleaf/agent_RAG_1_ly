@@ -1,0 +1,13 @@
+/* 工具调用消息内的代码块：允许换行，避免横向滚动 */
+details pre,
+details code {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+}
+
+/* 工具调用消息体本身也换行 */
+details {
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
