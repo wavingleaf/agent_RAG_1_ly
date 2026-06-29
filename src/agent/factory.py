@@ -12,18 +12,19 @@ run_agent_stream 现在消费 LangGraph 的 astream_events（v2），
 from src.agent.graph.pipeline import create_agent as _create_graph_agent
 
 
-def create_agent(model, tools, system_prompt, retriever=None, model_name=""):
+def create_agent(model, system_prompt, retriever=None, model_name="", tools=None):
     """创建 RAG Agent 实例（Phase 2：返回编译后的 LangGraph StateGraph）。
 
-    retriever 是 Phase 2 新增参数——app.py 需传入 ChromaDB retriever 实例。
-    model_name 是 Phase 3 新增参数——bge 系列模型需要查询前缀以提升检索精度。
-    tools 参数保留用于未来 Phase 在图中集成工具调用（当前暂不使用）。"""
+    retriever — ChromaDB retriever 实例（图节点直接调用）
+    model_name — bge 系列模型需要查询前缀以提升检索精度
+    tools — 保留参数。Phase 2 图节点直接调 retriever 不走 LangChain @tool；
+            保留供 Phase 4 分库后可能的工具调用集成（当前不使用）"""
     return _create_graph_agent(
         model=model,
-        tools=tools,
         system_prompt=system_prompt,
         retriever=retriever,
         model_name=model_name,
+        tools=tools,
     )
 
 

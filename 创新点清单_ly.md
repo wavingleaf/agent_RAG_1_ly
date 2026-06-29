@@ -13,8 +13,49 @@
 | # | 创新点 | 说明 | 状态 |
 |---|--------|------|------|
 | 1 | **词典术语解析层** | 用户中文俗称→英文代码标识符映射。跨越"用户语言≠文档语言"的双重鸿沟（中→英 + 俗称→标识符）。例：用户说"护甲值"→词典映射为 `armor` + `absorb_percent` | 🟡 已设计未实现 |
-| 2 | **四种查询增强条件触发** | Step-Back / HyDE / Decomposition / Expansion 各自由领域条件触发，非全开全关。例：用户问题含已知 Mod 名→直接 Expansion；模糊概念问题→HyDE。省 token、不浪费 | 🟡 已设计未实现 |
+| 2 | **四种查询增强条件触发** | Step-Back / HyDE / Decomposition / Expansion 各自由领域条件触发，非全开全关。省 token、不浪费。详见下方「四种技术详情」 | 🟡 已设计未实现 |
 | 3 | **两阈值三路径降级 + 透明告知** | 词典命中→精确检索 / 词典缺失→自动并行全源 / 知识库全空→手动指定。每级降级明确告知用户当前走的是哪条路径，而非悄悄降级 | 🟡 已设计未实现 |
+
+### 四种技术详情
+
+按实现复杂度递增排列：
+
+**Query Expansion（查询扩展）— 最轻量**
+
+将词典返回的精确标识符直接拼入原查询字符串，然后检索：
+
+```
+原文：便携衣柜怎么做
+词典命中：portable_wardrobe_ly
+重写后：portable_wardrobe_ly 便携衣柜怎么做 制作容器服装背包
+```
+
+**触发条件**：词典命中后始终触发。代价为零（词典已在检索链内）。
+
+**Step-Back Prompting（回退提问）**
+
+当原始问题过于具体（如"creepyeyes.lua 第 234 行的 OnUpdate 做了什么"），向量检索可能因匹配面过窄而失败。将问题抽象化后重新检索：
+
+```
+原始：creepyeyes.lua 第 234 行的 OnUpdate 做了什么
+回退：creepyeyes entity update logic and proximity detection mechanism
+```
+
+一次额外 LLM 调用，对嵌入空间模糊查询的召回率有 5-15pp 提升。
+
+**触发条件**：词典命中的查询词过于精确（单个函数名、行号）且初检结果为空时。
+
+**HyDE（假设文档嵌入）**
+
+用户问"怎么让物品不被腐烂"——词典能查到 perishable 组件和调鲜相关参数，但无法定位跨概念理解的问题。让 LLM 先凭空写一段假设答案（可能有错，无妨），用这段假答案的向量去搜真实文档——假答案和真答案在语义空间中更接近。
+
+**触发条件**：词典解析完成、问题重编完成后，第一次检索返回的文档数 < 阈值时。
+
+**Query Decomposition（子问题分解）**
+
+用户问"棱镜的随身容器是怎么做的？我如果要仿制但改用衣柜容器而不是背包，需要改哪些地方？"→ 拆为多个子问题，可能分属不同知识源且存在依赖关系。
+
+**触发条件**：未来扩展。现阶段先做词典重写，待 Agent 行为稳定后再引入 Planner 角色。
 
 ---
 
@@ -95,9 +136,9 @@
 
 | # | 改进点 | 说明 | 状态 |
 |---|--------|------|------|
-| 7 | **LangGraph 确定性图编排** | 即 CRAG（Corrective RAG, 2024）模式。`retrieve → grade → rewrite → re-retrieve → answer`。图的边 = 检索次数硬约束（最多 2 次）。替代 LangChain `create_agent` 的 prompt 软约束 | 🟢 已实现（Phase 2） |
+| 7 | **LangGraph 确定性图编排** | `retrieve → grade → rewrite → re-retrieve → answer`。图的边 = 检索次数硬约束（最多 2 次）。替代 LangChain `create_agent` 的 prompt 软约束。远期可参考 CRAG 扩展 Knowledge Refinement 和 Web search fallback | 🟢 已实现（Phase 2） |
 | 8 | **bge-m3 多语言 Embedding** | `all-MiniLM-L6-v2` 384d 纯英文 → `BAAI/bge-m3` 1024d 多语言 100+ 种。根治了中文查询的"语义失明"问题（2025 年多语言 RAG 默认选型） | 🟢 已实现（Phase 3 首项） |
-| 9 | **评分门控 + 查询重写** | LLM structured output 判断检索相关性 → 不相关自动重写查询后重新检索。CRAG 标准组件 | 🟢 已实现（Phase 2） |
+| 9 | **评分门控 + 查询重写** | LLM structured output 判断检索相关性 → 不相关自动重写查询后重新检索 | 🟢 已实现（Phase 2） |
 | 10 | **流式输出 + 打字机效果** | `astream_events`（v2）逐 token 推送 → Chainlit `stream_token()` 实时渲染 | 🟢 已实现（Phase 1） |
 | 11 | **Rerank 精排** | 粗检（bge-m3 检索）后过精排模型提升 Top-K 精度 | 🟡 计划中（Phase 3） |
 | 12 | **问题复杂度分类 + 子问题拆解并行** | `classify_complexity` → simple/complex 分流 → `decompose_question` → Send API 并行子图 → `synthesis` 去重合并 | ⚪ 规划中（Phase 5） |

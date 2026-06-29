@@ -8,7 +8,8 @@ Phase 3（2026-06-29）：升级模型从 all-MiniLM-L6-v2（384d，纯英文）
 bge-m3 要求：
   - normalize_embeddings=True —— 向量归一化到单位长度，余弦相似度 = 内积
   - query 前缀 —— "Represent this sentence for searching relevant passages:"
-    LangChain 的 HuggingFaceEmbeddings 已内置此逻辑（通过 encode_kwargs 配置）
+    HuggingFaceEmbeddings 不支持 query_instruction 入参（本版 LangChain 已移除该字段），
+    改为在 nodes.py 中通过 add_query_prefix() 手动添加前缀
 """
 
 import os

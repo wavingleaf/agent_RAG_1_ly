@@ -9,7 +9,7 @@
 
 ## 根因
 
-**ChromaDB 1.5.9 的 Rust HNSW 后端无法处理含中文的路径。**
+**Windows 上 Rust 的 Path/OsString 对含中文（非 ASCII）路径的处理问题，导致 ChromaDB 的 HNSW 索引文件写出静默失败。**
 
 项目路径为 `d:/饥荒mod流水线GitHub/agent_RAG_1_ly/`，ChromaDB 的 `persist_directory` 指向该路径下的 `chroma_db_v1/`。创建 collection 并写入数据时：
 - SQLite 层正常（`chroma.sqlite3` 中生成了 35039 条 embedding 记录）
@@ -17,11 +17,14 @@
 
 对比测试：
 
-| 路径 | 结果 |
-|------|------|
-| `C:/Users/ADMIN/.../tmpXXX/`（纯 ASCII） | ✅ 正常生成 5 个 `.bin` 文件 |
-| `d:/饥荒mod流水线GitHub/.../`（含中文） | ❌ 只有 `chroma.sqlite3`，无 `.bin` |
-| `测试中文_chromadb/`（含中文） | ❌ 只有 `chroma.sqlite3`，无 `.bin` |
+| 平台 | 路径 | 结果 |
+|------|------|------|
+| Windows | `C:/Users/ADMIN/.../tmpXXX/`（纯 ASCII） | ✅ 正常生成 4 个 `.bin` 文件 |
+| Windows | `d:/饥荒mod流水线GitHub/.../`（含中文） | ❌ 只有 `chroma.sqlite3`，无 `.bin` |
+| Windows | `测试中文_chromadb/`（含中文） | ❌ 只有 `chroma.sqlite3`，无 `.bin` |
+| Linux (Docker) | `/tmp/测试中文路径_xxxxx/`（含中文） | ✅ 正常生成 4 个 `.bin` 文件，重启后可正常读取 |
+
+**结论**：不是 ChromaDB 的 bug，而是 Windows 上 Rust 标准库对非 UTF-8 路径的处理问题。Linux 的中文路径完全正常。ChromaDB 的 HNSW 索引实现本身没有问题——问题出在 Windows + Rust + 中文路径的组合。
 
 ### 为什么第二次启动才报错？
 
@@ -45,9 +48,9 @@ persist_dir = str(Path(pd).expanduser()) if pd.startswith("~") else str(PROJECT_
 
 ## 影响范围
 
-- 所有含非 ASCII 字符路径的 Windows/Mac/Linux 环境
-- ChromaDB 1.x 系列（Rust 后端），不确定未来版本是否修复
-- 变通方案：始终将 `persist_directory` 设到纯 ASCII 路径
+- **Windows 环境**：所有含非 ASCII 字符路径的场景
+- **Linux / macOS**：不受影响——中文路径在 Linux 上正常工作
+- 变通方案：始终将 `persist_directory` 设到纯 ASCII 路径（Windows 下最安全）
 
 ## 排查方法
 

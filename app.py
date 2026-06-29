@@ -17,7 +17,6 @@ from src.embedding import create_embedding
 from src.llm import create_model
 from src.knowledge.store import create_vectorstore
 from src.agent.prompt import build_system_prompt
-from src.agent.tools import build_tools
 from src.agent.factory import create_agent, run_agent_stream
 
 # ── 0. 环境初始化 ──────────────────────────────────────────────────
@@ -107,10 +106,10 @@ async def on_chat_start():
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
     model = create_model(cfg)
     system_prompt = build_system_prompt(cfg)
-    tools = build_tools(cfg, retriever)
 
     doc_count = vectorstore._collection.count() if vectorstore._collection else 0
-    agent = create_agent(model=model, tools=tools, system_prompt=system_prompt, retriever=retriever, model_name=cfg["embedding"]["model_name"])
+    # Phase 2 LangGraph 图节点直接调 retriever，不走 LangChain @tool 机制
+    agent = create_agent(model=model, system_prompt=system_prompt, retriever=retriever, model_name=cfg["embedding"]["model_name"])
 
     cl.user_session.set("agent", agent)
     cl.user_session.set("config", cfg)
@@ -119,7 +118,6 @@ async def on_chat_start():
         f"Model: {cfg['llm']['model']}",
         f"Embedding: {cfg['embedding']['model_name']}",
         f"Documents: {doc_count}",
-        f"Tools: {len(tools)}",
     ]
     await cl.Message(content="\n".join(status_lines)).send()
 

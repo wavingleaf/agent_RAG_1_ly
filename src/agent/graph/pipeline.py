@@ -26,15 +26,15 @@ from src.agent.graph.nodes import (
 )
 
 
-def create_agent(model, tools, system_prompt, retriever=None, model_name=""):
+def create_agent(model, system_prompt, retriever=None, model_name="", tools=None):
     """构建并编译 LangGraph StateGraph，替代 LangChain create_agent。
 
     参数：
         model         — ChatOpenAI 实例（需启用 streaming）
-        tools         — 工具列表（Phase 2 保留参数但暂不使用；供未来 Phase 在图中集成工具）
         system_prompt — 拼装好的系统提示词字符串
         retriever     — ChromaDB retriever 实例
         model_name    — Embedding 模型名，用于 bge 系列模型自动加查询前缀
+        tools         — 保留参数（Phase 2 图节点直接调 retriever，不走 LangChain @tool）
 
     返回：
         编译后的 LangGraph 图（Runnable），可直接 .invoke() 或 .astream_events()

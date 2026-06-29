@@ -43,3 +43,31 @@ def get_doc_count(cfg: dict) -> int:
         return vs._collection.count() if vs._collection else 0
     except Exception:
         return -1
+
+
+def format_retrieval_results(docs: list) -> str:
+    """将检索文档列表格式化为 LLM 可读文本。
+
+    输出格式：[来源N：Mod名/文件路径]\n内容，用 --- 分隔。
+    当所有结果来自同一文件时，自动加「注意：以下结果均来自同一文件」提示。
+
+    此函数是检索结果的标准格式化入口——图节点（nodes.py）和管理面板
+    都通过它统一输出格式。原 tools.py 中的重复逻辑已合并至此。
+    """
+    if not docs:
+        return ""
+
+    parts = []
+    for i, doc in enumerate(docs):
+        source = doc.metadata.get("source", "未知来源")
+        mod = doc.metadata.get("mod_name", "未知")
+        content = doc.page_content
+        parts.append(f"[来源{i + 1}：{mod}/{source}]\n{content}")
+
+    result = "\n\n---\n\n".join(parts)
+
+    unique_sources = set(d.metadata.get("source", "") for d in docs)
+    if len(unique_sources) <= 1 and len(docs) > 1:
+        result = "(注意：以下结果均来自同一文件)\n\n" + result
+
+    return result

@@ -21,6 +21,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from pydantic import BaseModel, Field
 
 from src.embedding import add_query_prefix
+from src.knowledge.store import format_retrieval_results
 
 
 # ── State 定义 ───────────────────────────────────────────────────────
@@ -62,34 +63,6 @@ REWRITE_PROMPT = (
     "重写后的查询（只输出查询文本，不要加任何前缀或解释）："
 )
 
-# ── 工具函数 ──────────────────────────────────────────────────────────
-
-def _format_docs(docs: List[dict]) -> str:
-    """将检索文档列表格式化为 LLM 可读的文本。
-
-    输出格式与原 search_knowledge_base 工具一致——以 [来源N：Mod/文件] 开头、
-    用 --- 分隔，确保 app.py 的 _format_tool_output() 能正确解析。
-    """
-    if not docs:
-        return ""
-
-    parts = []
-    for i, doc in enumerate(docs):
-        source = doc.metadata.get("source", "未知来源")
-        mod = doc.metadata.get("mod_name", "未知")
-        content = doc.page_content
-        parts.append(f"[来源{i + 1}：{mod}/{source}]\n{content}")
-
-    result = "\n\n---\n\n".join(parts)
-
-    # 同 tools.py 逻辑：所有结果来自同一文件时加提示
-    unique_sources = set(d.metadata.get("source", "") for d in docs)
-    if len(unique_sources) <= 1 and len(docs) > 1:
-        result = "(注意：以下结果均来自同一文件)\n\n" + result
-
-    return result
-
-
 # ── 图节点 ────────────────────────────────────────────────────────────
 
 def retrieve_initial(state: RAGState, retriever, model_name: str = "") -> dict:
@@ -106,7 +79,7 @@ def retrieve_initial(state: RAGState, retriever, model_name: str = "") -> dict:
     question = state["question"]
     search_query = add_query_prefix(question, model_name)
     docs = retriever.invoke(search_query)
-    context = _format_docs(docs)
+    context = format_retrieval_results(docs)
     return {
         "query": question,
         "docs": docs,
@@ -184,7 +157,7 @@ def retrieve_expanded(state: RAGState, retriever, model_name: str = "") -> dict:
         return {}
 
     merged = list(state.get("docs", [])) + unique_new
-    context = _format_docs(merged)
+    context = format_retrieval_results(merged)
     return {
         "docs": merged,
         "context": context,

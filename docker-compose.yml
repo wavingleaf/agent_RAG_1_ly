@@ -21,16 +21,11 @@ services:
     environment:
       # ChromaDB 强制用挂载目录
       - HF_HOME=/app/chroma_data/hf_cache
+      - HF_HUB_OFFLINE=1
+      # 聊天端用 CPU embedding（bge-m3 1024d 单次检索 ~1-3s），
+      # 释放 GPU 给其他任务。chat 容器不挂 GPU。
+      # HF_HUB_OFFLINE=1 强制离线，模型已由 admin 容器下载到共享 volume
     command: chainlit run app.py --host 0.0.0.0 --port 8000
-    # GPU 直通（仅 Linux + nvidia-container-toolkit 有效；
-    # Windows 上需 Docker Desktop + WSL2，会自动识别）
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
     restart: unless-stopped
 
   # ── Streamlit 管理面板 ────────────────────────────────────
@@ -53,7 +48,8 @@ services:
       - STREAMLIT_SERVER_FILE_WATCHER_TYPE=none
     # streamlit run 只用 localhost 绑定即可（不需要外部访问时允许 0.0.0.0）
     command: streamlit run 管理面板.py --server.port 8501 --server.address 0.0.0.0
-    # GPU 直通（与 chat 服务相同配置）
+    # GPU 直通——仅入库时需要（35,039 片段 GPU ~15min，CPU 需 ~1-2h）。
+    # 聊天端不挂 GPU，用 CPU 做 bge-m3 检索（单次 ~1-3s，聊天可接受）
     deploy:
       resources:
         reservations:

@@ -5,132 +5,70 @@
 
 ---
 
-## 👉 当前阶段——RAG 过程可视化
+## ✅ 已完成——RAG 过程可视化（Phase 1）
 
-> **背景**：当前聊天端使用 `agent.invoke()`（阻塞式），用户提交问题后只能看到一个静态的"思考中…"动画，直到回答一次性返回。Agent 内部在做什么（检索？分析？重试？）完全不可见。
->
-> **目标**：让用户实时看到 Agent 的每一步动作——工具调用、检索进度、回答生成——全部在 Chainlit UI 中可视化展示。
->
-> **参考来源**：参考项目「SuperMew」的 SSE 流式架构 + 前端思考状态机（见 `参考项目对比分析_ly.md` 第 2.7 节和第 3.1 节）。设计思路借鉴，具体实现用 Chainlit 原生 API 重写。
->
-> **可行性**：✅ 所有依赖已具备——Chainlit 2.11.1 的 `cl.Step` / `@cl.step` / `cl.Message.stream_token()` 均为内置 API，不需要安装任何新依赖。
+> **完成日期**：2026-06-29
+> **结果**：流式打字机 + 三色折叠卡片（🔍检索/📊评估/✏️重写）。详见 `项目优化记录_ly.md`。
 
-### 1. 切换到流式 Agent 模式
+### 1. 切换到流式 Agent 模式 ✅
 
-将 `agent.invoke()` 改为 `agent.astream(stream_mode="messages")`，逐 token 产出后用 `cl.Message.stream_token()` 发送。
+### 2. 工具调用过程可视化 ✅
 
-- **依赖**：无
-- **影响文件**：`agent/factory.py`（新增 `run_agent_stream()` 生成器）、`app.py`（消费流式产出）
-- **工作量**：小（~40 行改动）
-- **收益**：回答从"卡住等待"变成打字机效果
+### 3. 检索详情展示 ✅
 
-### 2. 工具调用过程可视化
-
-用 `@cl.step` 装饰器包裹工具调用，让每次检索在 UI 中显示为独立的折叠步骤。
-
-```
-用户看到的效果：
-┌─────────────────────────────┐
-│ 🔍 正在检索知识库...        │ ← cl.Step（可展开看检索结果摘要）
-│ ✅ 找到 3 个相关片段        │
-├─────────────────────────────┤
-│ 🤖 正在生成回答...          │ ← 自动过渡到流式回答
-│ 根据知识库中的信息，便携...  │ ← 逐 token 出现
-└─────────────────────────────┘
-```
-
-- **依赖**：任务 1
-- **影响文件**：`agent/tools.py`（工具内部加 `@cl.step`）
-- **工作量**：中（理解 Chainlit Step 生命周期和 LangChain tool 的交互方式）
-
-### 3. 检索详情展示（检索到了什么、来自哪里）
-
-在 `cl.Step` 的输出中展示检索结果的关键信息：每个片段的文件来源 + Mod 名称、片段数量、同文件提示。
-
-- **依赖**：任务 2
-- **影响文件**：`agent/tools.py`（结构化格式化检索结果放入 Step.output）
-- **工作量**：小（数据已有，换展示方式）
-
-### 4. Agent 思考路径透传
-
-解析 `astream` 返回的消息类型（AIMessage / ToolMessage / AIMessageChunk），在消息级别用 Chainlit Step 展示推理过程。
-
-- **依赖**：任务 1
-- **影响文件**：`app.py`（解析消息类型并分阶段创建 Step）、`agent/factory.py`（消息类型标注）
-- **工作量**：中（需要解析 `astream` 的消息类型并分阶段创建 Step）
+### 4. Agent 思考路径透传 ✅
 
 ---
 
-## 𐄂 次优先级——迁移到 LangGraph（架构打底）
+## ✅ 已完成——迁移到 LangGraph（Phase 2）
 
-> **背景**：当前用 LangChain 1.0 `create_agent`，Agent 自行判断"是否检索、检索几次"——靠 system prompt 约束模型的概率性行为，不可靠。后续每加一层复杂度，system prompt 就更臃肿一圈。
->
-> **方案**：迁移到 LangGraph StateGraph，把 RAG 流程从"让 LLM 决定"变为"开发者定义节点+边"的确定性图编排。
->
-> **为什么放这里**：在加新功能之前把架构底子铺好。做完可视化后立刻做——可视化 Layer 已经写好了，迁移到 LangGraph 后每个节点的状态变化能直接复用已有的 `cl.Step` 来展示。
->
-> **参考来源**：参考项目的 `backend/rag/pipeline.py`（680 行）是完整可参照的实现。
->
-> **代码结构影响**：`agent/factory.py` 升级为子包 `agent/graph/`（含 `pipeline.py` + `nodes.py`）。详见 [`src架构设计_ly.md` §Phase 2](src架构设计_ly.md#phase-2-迁移到-langgraph)。
+> **完成日期**：2026-06-29
+> **结果**：LangGraph StateGraph 替代 LangChain `create_agent`。图结构 `retrieve → grade → rewrite → re-retrieve → answer`，检索次数由图边固化（最多 2 次）。
+> Phase 2 集成测试中暴露了 `all-MiniLM-L6-v2` 纯英文模型对中文"失明"的问题，直接触发了 Phase 3 Embedding 升级（见下方）。
 
-### 1. 搭建最小 LangGraph 骨架
+### 1. 搭建最小 LangGraph 骨架 ✅
 
-```
-入口(retrieve) → 检索 → END
-```
+### 2. 添加评分门控节点 ✅
 
-- State 定义：`question / query / context / docs / response`
-- 节点：`retrieve_initial`（调用 ChromaDB 检索）
-- **依赖**：RAG 可视化全部完成
-- **影响文件**：`agent/factory.py` → `agent/graph/pipeline.py` + `agent/graph/nodes.py`
-- **工作量**：中
+### 3. 添加查询重写 + 重检索链路 ✅
 
-### 2. 添加评分门控节点
-
-在检索后插入 `grade_documents` 节点：LLM 判断检索结果是否相关 → yes 进回答 / no 进重写。
-
-- **依赖**：任务 1
-- **影响文件**：`agent/graph/nodes.py` + `pipeline.py`
-- **工作量**：小
-
-### 3. 添加查询重写 + 重检索链路
-
-`rewrite_question` → `retrieve_expanded` → 回答。
-
-- **依赖**：任务 2
-- **影响文件**：`agent/graph/nodes.py` + `pipeline.py`
-- **工作量**：中
-
-### 4. 工具调用硬限制（迁移后自然获得）
-
-图的边本身就是硬限制——搜索节点只在指定位置出现。不再需要 prompt 约束。
-
-- **依赖**：任务 1（自动附带）
-- **影响文件**：无
+### 4. 工具调用硬限制（随图结构自动获得） ✅
 
 ---
 
-## 𐄂 再下一轮——检索质量提升
+## 👉 当前阶段——检索质量提升（Phase 3）
 
-> 说明：LangGraph 迁移完成后，每个改动可以独立验证（输 State 看 State 出）。
->
-> **代码结构影响**：`knowledge/store.py` 随 rerank/expand 的加入升级为子包。详见 [`src架构设计_ly.md` §Phase 3](src架构设计_ly.md#phase-3-检索质量提升)。
+### 0. 🔴 统一 Streamlit 聊天+管理（第一优先级）
 
-### 1. 升级 Embedding 模型（优先）
-- 候选：`bge-large-zh-v1.5` / `multilingual-e5-large` / `BAAI/bge-m3`（参考项目同款，1024维）
-- 需评估：RTX 4060 8GB 显存占用、推理速度、ChromaDB 兼容性
-- **影响文件**：`embedding.py`（改一行模型名）、`config.json`
+- **目标**：用 Streamlit 替换 Chainlit，聊天端与管理面板合并为一个应用
+- **动机**：
+  - 去除 Chainlit 依赖，减少框架数量
+  - 聊天端与管理面板共享 `st.session_state`，不存在 ChromaDB 并发读写问题
+  - 一个启动脚本、一个端口
+- **代价**：工具调用不再有 Chainlit 独立时间线气泡，退化为回答中的内嵌 `<details>` 折叠卡片
+- **代码量**：app.py ~80 行（从 ~196 行重写），管理面板.py 不动
+- **影响文件**：`app.py`（重写）、`启动rag助手.py`（删除，合并入新启动脚本）、`requirements.txt`（移除 chainlit）
 
-### 2. 工具调用硬限制（参考项目方案）
-- 参考项目 `tools/knowledge.py` 用 `_try_acquire_knowledge_tool_call()` 硬限制每轮最多 1 次检索
-- **影响文件**：`agent/tools.py`
+### 1. 升级 Embedding 模型 ✅（2026-06-29）
+
+- `all-MiniLM-L6-v2` 384d → `BAAI/bge-m3` 1024d 多语言 100+ 种
+- Phase 2 集成测试中发现：查询"棱镜mod装备" → Top-10 全返回小穹（0% 命中棱镜），根因是 MiniLM 纯英文模型无法区分钟文语义。升级后棱镜命中率 0%→100%。
+- 详见 `项目优化记录_ly.md` §4。
+- **影响文件**：`config.json`、`src/embedding.py`、`src/agent/graph/nodes.py`、`src/agent/graph/pipeline.py`、`src/agent/factory.py`、`app.py`
+
+### 2. 工具调用硬限制 ✅（随 Phase 2 自动获得）
+
+- LangGraph 图的边 = 物理硬约束，最多 2 次检索。不再需要 prompt 软约束或 `recursion_limit`。
+- 已从 Phase 3 待办移除——Phase 2 迁移完成后自动获得。
 
 ### 3. Query Expansion（查询扩展）
+
 - Step-Back Prompting + HyDE
-- **影响文件**：`knowledge/expand.py`（新建）、`agent/tools.py`
+- **影响文件**：`knowledge/expand.py`（新建）、`agent/graph/nodes.py`
 
 ### 4. Rerank 精排
-- 候选：Jina Rerank API / 本地 Cross-Encoder 模型
+
+- 候选：Jina Rerank API / 本地 Cross-Encoder 模型 / bge-reranker-v2-m3
 - **影响文件**：`knowledge/rerank.py`（新建）、`knowledge/store.py`
 
 ---
@@ -175,6 +113,6 @@
 
 ## 维护类
 
-- 踩坑记录：[`踩坑记录/`](踩坑记录/) — 9 项，已按「已避免/使用方式依赖/仍可能触发」分类
-- `.env` 编码 / HuggingFace 镜像 / Streamlit 文件监视器 / `RecursiveCharacterTextSplitter` 路径 — 已修复
-- ChromaDB 持久化目录：Docker 内 `/app/chroma_data/v1`，宿主机由 volume 管理
+- 踩坑记录：[`踩坑记录/`](踩坑记录/) — 11 项，已按「已避免/使用方式依赖」分类（🔴 仍可能触发，该类别数量为零）
+- ChromaDB 持久化目录：Docker 内 `/app/chroma_data/bge-m3`，宿主机由 volume 管理
+- Chat 容器用 CPU embedding、Admin 容器用 GPU embedding（入库时）。详见 `docker-compose.yml`

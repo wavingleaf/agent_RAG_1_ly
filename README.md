@@ -53,7 +53,7 @@
 
 | 条目 | 一句话 |
 |------|--------|
-| LangGraph 确定性图编排 | CRAG 模式，图的边 = 检索次数硬约束 |
+| LangGraph 确定性图编排 | 图的边 = 检索次数硬约束 |
 | bge-m3 多语言 Embedding | 1024d 多语言，根治中文语义失明 |
 | 评分门控 + 查询重写 | LLM 判断相关性，不相关自动重写再检索 |
 
@@ -238,8 +238,7 @@ agent_RAG_1_ly/
 │       ├── __init__.py
 │       ├── factory.py      # create_agent() 委托给 graph；run_agent_stream() 事件映射
 │       ├── prompt.py       # System prompt 拼装
-│       ├── tools.py        # ⚠️ 僵尸代码 — Phase 2 图节点直接调 retriever，保留供 Phase 4 分库复活
-│       └── graph/          # 🆕 LangGraph 图编排（Phase 2）
+│       └── graph/          # LangGraph 图编排（Phase 2）
 │           ├── __init__.py
 │           ├── nodes.py    # RAGState + 5 节点 + Pydantic 评分模型
 │           └── pipeline.py # StateGraph 构建 + 条件边 + 编译
