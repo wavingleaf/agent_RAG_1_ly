@@ -1,29 +1,36 @@
 {
+  "_说明": "⚠️ 改完配置后需重启容器（docker compose up -d chat admin）。chat 和 admin 共用此文件。",
+
   "llm": {
+    "_说明": "base_url 指向兼容 OpenAI API 格式的端点，换 provider 时改这里 + api_key_env + model",
     "provider": "deepseek",
     "model": "deepseek-chat",
     "base_url": "https://api.deepseek.com",
     "api_key_env": "DEEPSEEK_API_KEY",
     "temperature": 0.0
   },
+
   "embedding": {
+    "_说明": "model_name 换了必须重建向量库（维度不兼容）。query_prefix 需要跟模型匹配：bge 系列有前缀，其他模型通常留空 \"\"",
     "provider": "huggingface",
     "model_name": "BAAI/bge-m3",
-    "hf_endpoint": "https://hf-mirror.com"
+    "hf_endpoint": "https://hf-mirror.com",
+    "_query_prefix_说明": "bge-m3 训练时使用的指令前缀。换 embedding 模型时：bge 系列保留此前缀，其他模型（如 multilingual-e5、all-MiniLM）清空为 \"\"。改错前缀会导致检索质量下降，不会报错",
+    "query_prefix": "Represent this sentence for searching relevant passages: "
   },
+
   "knowledge_base": {
+    "_persist_directory_说明": "Docker 容器内路径，宿主机通过 chroma_data volume 挂载。如果在宿主机裸跑 Python，需改为 ./chroma_db 或类似本地路径，否则会看起来像库被清空了",
     "persist_directory": "/app/chroma_data/bge-m3",
+    "_chunk_说明": "改了 chunk_size 或 chunk_overlap 必须重建向量库（旧 chunk 不会自动重新切割）",
     "chunk_size": 500,
     "chunk_overlap": 50
   },
+
   "documents": [],
-  "tools": {
-    "search_knowledge_base": {
-      "enabled": true,
-      "description": "在知识库中搜索与用户问题相关的文档。每次回答用户问题前，都应先调用此工具进行检索。"
-    }
-  },
+
   "agent": {
+    "_说明": "force_search_first 在 Phase 2 LangGraph 图中已无实际效力（检索由图边固定）。allow_external_knowledge 为 true 时允许 LLM 在检索无果后补充自身知识并标注来源",
     "force_search_first": true,
     "allow_external_knowledge": true,
     "system_prompt_extra": ""

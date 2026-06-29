@@ -26,14 +26,16 @@ from src.agent.graph.nodes import (
 )
 
 
-def create_agent(model, system_prompt, retriever=None, model_name="", tools=None):
+def create_agent(model, system_prompt, retriever=None, query_prefix="", tools=None):
     """构建并编译 LangGraph StateGraph，替代 LangChain create_agent。
 
     参数：
         model         — ChatOpenAI 实例（需启用 streaming）
         system_prompt — 拼装好的系统提示词字符串
         retriever     — ChromaDB retriever 实例
-        model_name    — Embedding 模型名，用于 bge 系列模型自动加查询前缀
+        query_prefix  — embedding 查询前缀，从 config.json 的 embedding.query_prefix 读取。
+                        例如 bge-m3 的 "Represent this sentence for searching relevant passages: "。
+                        空字符串表示模型不需要前缀。
         tools         — 保留参数（Phase 2 图节点直接调 retriever，不走 LangChain @tool）
 
     返回：
@@ -42,12 +44,12 @@ def create_agent(model, system_prompt, retriever=None, model_name="", tools=None
     graph = StateGraph(RAGState)
 
     # ── 注册节点 ─────────────────────────────────────────────────
-    # 用 lambda 闭包将外部依赖（retriever/model/system_prompt/model_name）
+    # 用 lambda 闭包将外部依赖（retriever/model/system_prompt/query_prefix）
     # 注入节点函数，节点函数本身保持纯函数签名（不直接依赖外部状态），便于单测。
 
     graph.add_node(
         "retrieve_initial",
-        lambda s: retrieve_initial(s, retriever, model_name),
+        lambda s: retrieve_initial(s, retriever, query_prefix),
     )
     graph.add_node(
         "grade_documents",
@@ -59,7 +61,7 @@ def create_agent(model, system_prompt, retriever=None, model_name="", tools=None
     )
     graph.add_node(
         "retrieve_expanded",
-        lambda s: retrieve_expanded(s, retriever, model_name),
+        lambda s: retrieve_expanded(s, retriever, query_prefix, model),
     )
     graph.add_node(
         "generate_answer",

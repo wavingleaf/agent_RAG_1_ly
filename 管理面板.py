@@ -71,9 +71,6 @@ with st.sidebar:
     else:
         st.metric("知识库片段数", "N/A", help="数据库尚未初始化，上传第一篇文档后自动创建")
 
-    enabled_tools = [k for k, v in cfg.get("tools", {}).items() if v.get("enabled")]
-    st.metric("已启用工具", len(enabled_tools))
-
     st.divider()
     st.markdown(f"**LLM**: {cfg['llm']['model']}")
     st.markdown(f"**Embedding**: {cfg['embedding']['model_name']}")
@@ -86,7 +83,7 @@ with st.sidebar:
 
 # ── 主体：标签页 ──────────────────────────────────────────────────
 
-tabs = st.tabs(["📡 LLM 模型", "🧠 Embedding", "📚 知识库", "🔧 工具集", "🤖 Agent 行为"])
+tabs = st.tabs(["📡 LLM 模型", "🧠 Embedding", "📚 知识库", "🤖 Agent 行为"])
 
 # ──────────────────── Tab 1: LLM 模型 ─────────────────────────────
 with tabs[0]:
@@ -239,33 +236,8 @@ with tabs[2]:
             st.warning("知识库已清空")
             st.rerun()
 
-# ──────────────────── Tab 4: 工具集 ────────────────────────────────
+# ──────────────────── Tab 4: Agent 行为 ────────────────────────────
 with tabs[3]:
-    st.subheader("工具开关")
-    st.caption("勾选后聊天端 Agent 即可调用该工具。新增工具需同时在 app.py 中注册函数。")
-
-    tools_cfg = cfg.get("tools", {})
-    for tool_name, tool_info in tools_cfg.items():
-        col1, col2 = st.columns([1, 4])
-        with col1:
-            tool_info["enabled"] = st.checkbox(
-                tool_name, value=tool_info.get("enabled", True),
-                key=f"tool_{tool_name}"
-            )
-        with col2:
-            st.caption(tool_info.get("description", ""))
-
-    # 未来扩展提示
-    st.divider()
-    st.info(
-        "💡 要新增工具：\n"
-        "1. 在 `config.json` 的 `tools` 字段加一条记录\n"
-        "2. 在 `app.py` 的 `_build_enabled_tools()` 中写对应的 `@langchain_tool` 函数\n"
-        "3. 回到这个面板把开关打开"
-    )
-
-# ──────────────────── Tab 5: Agent 行为 ────────────────────────────
-with tabs[4]:
     st.subheader("Agent 运行参数")
 
     # — 温度 —
@@ -305,20 +277,13 @@ with tabs[4]:
     # — 预览 —
     st.divider()
     with st.expander("👁️ 预览当前生成的 System Prompt"):
-        # 本地生成（与 app.py 中 _build_system_prompt 逻辑一致，避免跨进程 import）
-        agent_preview = cfg.get("agent", {})
-        preview_lines = ["你是一个基于知识库的问答助手。回答规则："]
-        if agent_preview.get("force_search_first", True):
-            preview_lines.append("1. 每次收到用户问题，**必须**先调用 search_knowledge_base 工具搜索知识库")
-        if agent_preview.get("allow_external_knowledge", False):
-            preview_lines.append("2. 如知识库信息不够，可基于自身知识补充，但需标注来源")
-        else:
-            preview_lines.append("2. 如工具返回「数据库中缺少相关信息」，告知用户无相关信息")
-            preview_lines.append("3. **绝对禁止**编造知识库中没有的信息")
-        extra = agent_preview.get("system_prompt_extra", "").strip()
-        if extra:
-            preview_lines.append(f"\n补充规则：{extra}")
-        st.code("\n".join(preview_lines), language="text")
+        # 直接调用 build_system_prompt()，确保预览与实际发给 LLM 的 prompt 完全一致
+        # （此前硬编码了一套预览逻辑，Phase 2 prompt.py 改了规则后两者不同步——
+        #   例如预览写了"必须调用 search_knowledge_base 工具"，但 Phase 2 检索由图节点强制执行，
+        #   prompt 中已去掉此语言。现在直接调用 build_system_prompt() 消除不一致）
+        from src.agent.prompt import build_system_prompt
+        sp = build_system_prompt(cfg)
+        st.code(sp, language="text")
 
 
 # ── 底部：保存按钮 ─────────────────────────────────────────────────

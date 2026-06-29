@@ -63,13 +63,25 @@ REWRITE_PROMPT = (
     "重写后的查询（只输出查询文本，不要加任何前缀或解释）："
 )
 
+# 语义等价检测 prompt——用于判断重写查询是否只是原问题的微小编辑
+# （如加空格、换同义词），而非真正从不同角度重述。
+# 若语义等价则跳过 re-retrieve，节省一次 ChromaDB 查询。
+SEMANTIC_EQUIV_CHECK_PROMPT = (
+    "判断以下两个查询是否语义等价（即是否会检索到几乎相同的结果）。\n\n"
+    "查询A：{query_a}\n"
+    "查询B：{query_b}\n\n"
+    "仅回答 yes 或 no："
+)
+
 # ── 图节点 ────────────────────────────────────────────────────────────
 
-def retrieve_initial(state: RAGState, retriever, model_name: str = "") -> dict:
+def retrieve_initial(state: RAGState, retriever, query_prefix: str = "") -> dict:
     """初次检索节点：用用户问题作为查询，从 ChromaDB 检索相关文档。
 
-    bge 系列模型在训练时使用了查询指令前缀（"Represent this sentence
-    for searching relevant passages:"），检索前自动添加以提升语义匹配精度。
+    query_prefix 从 config.json 的 embedding.query_prefix 读取，
+    例如 bge-m3 训练时使用了 "Represent this sentence for searching
+    relevant passages:" 指令前缀，检索前自动添加以提升语义匹配精度。
+    若为空字符串（模型不需要前缀），原样使用查询。
 
     返回：
         query   — 固定为用户原始问题
@@ -77,7 +89,7 @@ def retrieve_initial(state: RAGState, retriever, model_name: str = "") -> dict:
         context — 格式化后的文本（给后续节点 LLM 阅读）
     """
     question = state["question"]
-    search_query = add_query_prefix(question, model_name)
+    search_query = add_query_prefix(question, query_prefix)
     docs = retriever.invoke(search_query)
     context = format_retrieval_results(docs)
     return {
@@ -133,19 +145,36 @@ def rewrite_question(state: RAGState, model) -> dict:
     return {"query": rewritten}
 
 
-def retrieve_expanded(state: RAGState, retriever, model_name: str = "") -> dict:
+def retrieve_expanded(state: RAGState, retriever, query_prefix: str = "", model=None) -> dict:
     """扩展检索节点：用重写后的查询再次检索，合并去重后更新 docs + context。
 
-    如果重写查询与原查询完全相同（退化），跳过检索以避免重复结果。
+    退化检测：先做精确字符串比较（免费），不等时再用 LLM 判断语义是否等价。
+    仅当语义确实不等时才重新检索，避免为表面变化（加空格、换同义词）浪费 API 调用。
+
+    #16 临时方案：用 LLM 做语义等价判断。远期归入 #4（评分门控可靠性优化），
+    与 grade_documents 的 yes/no 误判率一同评估和改进。
     """
     query = state.get("query", state["question"])
     question = state["question"]
 
-    # 退化检测：重写查询与原问题完全相同时，跳过（节省 API 调用）
+    # 精确相等 → 肯定退化，直接跳过
     if query == question:
         return {}
 
-    search_query = add_query_prefix(query, model_name)
+    # 字符串不等但可能语义等价 → 用 LLM 判断
+    if model is not None:
+        try:
+            prompt = SEMANTIC_EQUIV_CHECK_PROMPT.format(query_a=question, query_b=query)
+            response = model.invoke([{"role": "user", "content": prompt}])
+            answer = response.content.strip().lower()
+            if answer.startswith("yes"):
+                # 语义等价，跳过检索以节省 API 调用
+                return {}
+        except Exception:
+            # LLM 调用失败时保守处理：继续检索（宁可多搜一次也不错过新结果）
+            pass
+
+    search_query = add_query_prefix(query, query_prefix)
     new_docs = retriever.invoke(search_query)
 
     # 去重合并：按 page_content 去重，保留第一次出现的来源信息

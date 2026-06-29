@@ -7,9 +7,10 @@ Phase 3（2026-06-29）：升级模型从 all-MiniLM-L6-v2（384d，纯英文）
 
 bge-m3 要求：
   - normalize_embeddings=True —— 向量归一化到单位长度，余弦相似度 = 内积
-  - query 前缀 —— "Represent this sentence for searching relevant passages:"
+  - query 前缀 —— 由 config.json 的 embedding.query_prefix 字段配置。
     HuggingFaceEmbeddings 不支持 query_instruction 入参（本版 LangChain 已移除该字段），
-    改为在 nodes.py 中通过 add_query_prefix() 手动添加前缀
+    改为在 nodes.py 中通过 add_query_prefix() 手动添加前缀。
+    query_prefix 移到 config.json 后，换模型时前缀自动跟随，无需同步改代码。
 """
 
 import os
@@ -23,9 +24,6 @@ from langchain_huggingface import HuggingFaceEmbeddings
 _BGE_M3_ENCODE_KWARGS = {
     "normalize_embeddings": True,  # L2 归一化，使内积等价于余弦相似度
 }
-
-# bge-m3 查询指令前缀（模型训练时使用，不改变应在查询时也加上）
-_BGE_M3_QUERY_INSTRUCTION = "Represent this sentence for searching relevant passages: "
 
 
 def create_embedding(cfg: dict, model_kwargs: dict | None = None):
@@ -54,15 +52,17 @@ def create_embedding(cfg: dict, model_kwargs: dict | None = None):
 # ── 公共工具函数 ──────────────────────────────────────────────────────
 
 
-def add_query_prefix(query: str, model_name: str) -> str:
-    """为 bge 系列模型的查询添加指令前缀。
+def add_query_prefix(query: str, query_prefix: str) -> str:
+    """为查询添加 embedding 模型的指令前缀。
+
+    查询前缀从 config.json 的 embedding.query_prefix 传入（而非硬编码检测模型名）。
+    换模型时只需改 config.json，前缀自动跟随，无需同步改代码。
 
     LangChain 的 HuggingFaceEmbeddings.embed_query() 不会自动加前缀，
-    但 bge-m3 训练时使用了该前缀，加上的检索效果显著好于不加。
     在 nodes.py 的 retrieve 节点中调用此函数。
 
-    其他模型（如 all-MiniLM-L6-v2、multilingual-e5）不需要前缀。
+    若 query_prefix 为空字符串（模型不需要前缀），原样返回 query。
     """
-    if "bge" in model_name.lower():
-        return _BGE_M3_QUERY_INSTRUCTION + query
+    if query_prefix:
+        return query_prefix + query
     return query

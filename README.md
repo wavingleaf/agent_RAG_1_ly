@@ -10,8 +10,8 @@
 🟢 Phase 1 完成：流式输出、工具调用可视化、思考路径透传
 🟢 Phase 2 完成：LangGraph 确定性图编排（替代 LangChain create_agent）
 🟢 Phase 3 首项完成：Embedding 模型升级（all-MiniLM-L6-v2 → bge-m3 1024d）
-🟡 已设计未实现：四分库架构、词典速查、Query Expansion 管道
-⚪ 规划中：Step-Back Prompting / HyDE / Query Decomposition
+🟡 已设计未实现：四分库架构、词典速查、词典增强查询重写（Glossary-Informed）
+⚪ 规划中：LLM 自主查询重写（Step-Back / HyDE）、Query Decomposition
 ```
 
 详见 [TODO.md](TODO.md) 和 [CONTEXT.md](CONTEXT.md)。

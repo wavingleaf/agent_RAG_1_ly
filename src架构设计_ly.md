@@ -117,7 +117,7 @@ knowledge/                    # Phase 3 后
 ├── __init__.py
 ├── store.py                  # 不变
 ├── rerank.py                 # 🆕 结果重排序
-└── expand.py                 # 🆕 Query Expansion
+└── expand.py                 # 🆕 LLM 自主查询重写（Step-Back / HyDE）
 ```
 
 ### Phase 4: 四分库架构

@@ -109,7 +109,8 @@ async def on_chat_start():
 
     doc_count = vectorstore._collection.count() if vectorstore._collection else 0
     # Phase 2 LangGraph 图节点直接调 retriever，不走 LangChain @tool 机制
-    agent = create_agent(model=model, system_prompt=system_prompt, retriever=retriever, model_name=cfg["embedding"]["model_name"])
+    query_prefix = cfg["embedding"].get("query_prefix", "")
+    agent = create_agent(model=model, system_prompt=system_prompt, retriever=retriever, query_prefix=query_prefix)
 
     cl.user_session.set("agent", agent)
     cl.user_session.set("config", cfg)
