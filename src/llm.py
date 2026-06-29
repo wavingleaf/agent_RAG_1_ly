@@ -18,4 +18,5 @@ def create_model(cfg: dict):
         base_url=llm_cfg["base_url"],
         api_key=api_key,
         temperature=llm_cfg.get("temperature", 0.0),
+        streaming=True,  # Phase 2: LangGraph astream_events 需捕获节点内 LLM 的 on_chat_model_stream
     )

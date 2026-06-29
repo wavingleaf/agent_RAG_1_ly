@@ -8,7 +8,7 @@
 
 不是所有坑都需要细读。按"你现在在干什么"分类：
 
-### 🟢 已避免 / 开发过程坑（7 个）
+### 🟢 已避免 / 开发过程坑（8 个）
 
 修复已写入代码，**正常使用无需关心**。除非你要修改核心脚本（`app.py`/`管理面板.py`/`批量导入mod代码.py`），否则不会重新触发。
 
@@ -16,10 +16,13 @@
 |---|------|---------|
 | 01 | ChromaDB 中文路径 | `persist_directory` 已迁到 `~/.chromadb_rag/v1`（纯 ASCII），三个脚本均加了 `~` 展开逻辑 |
 | 02 | agent invoke 输入格式 | `app.py` 已改为 `{"messages": [HumanMessage(...)]}` |
+| 03 | Agent 反复搜索死循环 | Phase 2 LangGraph 图的边 = 硬约束，最多 2 次检索，物理上不可能有第三次。**已根除** |
 | 05 | .env UTF-16 编码 | 文件本体已转 UTF-8，`.gitignore` 排除，不会回退 |
 | 06 | HuggingFace 国内网络 | 所有脚本启动时写入 `HF_ENDPOINT` + `HF_HUB_OFFLINE`，模型已本地缓存 |
 | 08 | RecursiveCharacterTextSplitter | import 已改为 `langchain_classic.text_splitter` |
 | 09 | PyTorch CPU → GPU | CUDA 版 PyTorch 已安装，GPU Embedding 已验证 |
+| 10 | LangGraph 节点闭包依赖注入 | pipeline.py 的 lambda 闭包已同步更新 `model_name` 参数 |
+| 11 | HuggingFaceEmbeddings 不支持 query_instruction | 改为在 nodes.py 中手动调用 `add_query_prefix()` |
 
 ### 🟡 使用方式依赖（2 个）
 
@@ -31,14 +34,6 @@
 | 07 | Streamlit 文件监视器 | 用 `python 启动管理面板.py` | 直接 `streamlit run 管理面板.py` 时不带 `--server.fileWatcherType none` 参数 |
 
 **规则**：永远使用项目根目录的两个启动脚本，不要直接调用底层命令。
-
-### 🔴 仍可能触发（1 个）
-
-根因未根除，PoC 阶段仍需注意。
-
-| # | 标题 | 说明 |
-|---|------|------|
-| 03 | Agent 反复搜索死循环 | `recursion_limit=10` + system prompt "最多 3 次"只是**软约束**。根因在 `all-MiniLM-L6-v2` 对中英混排 Lua 代码的语义检索不准——检索质量不提升，这个问题只能说被控制，不能说根除。下一阶段计划升级 embedding 模型 |
 
 ---
 
@@ -55,6 +50,8 @@
 | 07 | [Streamlit 文件监视器触发 torchvision 缺失](07_Streamlit文件监视器问题.md) | 管理面板 | Streamlit 扫描 `transformers` 时懒加载触发 `torchvision` 报错 |
 | 08 | [RecursiveCharacterTextSplitter 在 LangChain 1.0 中位置变更](08_RecursiveCharacterTextSplitter位置变更.md) | LangChain | 从 `langchain.text_splitter` 移到 `langchain_classic.text_splitter` |
 | 09 | [PyTorch CPU 版本无法使用 GPU](09_PyTorch_CPU_GPU版本.md) | GPU/Embedding | CPU 版 `torch` 不包含 CUDA，Embedding 推理慢 20-50 倍 |
+| 10 | [LangGraph 节点闭包依赖注入](10_LangGraph节点闭包依赖注入.md) | LangGraph | 检索节点新增 `model_name` 参数后，pipeline.py 的 lambda 闭包需同步更新，否则 bge-m3 查询前缀不生效 |
+| 11 | [HuggingFaceEmbeddings 不支持 query_instruction](11_HuggingFaceEmbeddings不支持query_instruction.md) | Embedding | bge-m3 需要查询指令前缀但 LangChain 新版无此字段，改为在 nodes.py 中手动调用 `add_query_prefix()` |
 
 ## 通用教训
 

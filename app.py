@@ -110,7 +110,7 @@ async def on_chat_start():
     tools = build_tools(cfg, retriever)
 
     doc_count = vectorstore._collection.count() if vectorstore._collection else 0
-    agent = create_agent(model=model, tools=tools, system_prompt=system_prompt)
+    agent = create_agent(model=model, tools=tools, system_prompt=system_prompt, retriever=retriever, model_name=cfg["embedding"]["model_name"])
 
     cl.user_session.set("agent", agent)
     cl.user_session.set("config", cfg)
@@ -145,6 +145,13 @@ async def on_message(message: cl.Message):
     current_msg = cl.Message(content="")   # 当前文本段
     tool_msgs = {}                         # run_id → cl.Message（工具调用占位）
 
+    # 不同工具类型用不同图标，方便用户在时间线上区分"检索/判断/重写"
+    _TOOL_ICONS = {
+        "search_knowledge_base": "🔍",
+        "相关性评估": "📊",
+        "查询重写": "✏️",
+    }
+
     async for event in run_agent_stream(agent, message.content):
         if event["type"] == "token":
             if not current_msg.content:
@@ -155,9 +162,9 @@ async def on_message(message: cl.Message):
             # 关闭上一段文字
             if current_msg.content:
                 await current_msg.update()
-            # 工具调用开始：先发一个消息显示"正在搜索..."
+            icon = _TOOL_ICONS.get(event["name"], "🔍")
             tool_msg = cl.Message(
-                content=f"🔍 **{event['name']}**\n\n_{event['input']}_",
+                content=f"{icon} **{event['name']}**\n\n_{event['input']}_",
             )
             await tool_msg.send()
             tool_msgs[event["run_id"]] = tool_msg
@@ -166,11 +173,20 @@ async def on_message(message: cl.Message):
         elif event["type"] == "tool_end":
             tool_msg = tool_msgs.pop(event["run_id"], None)
             if tool_msg:
-                formatted = _format_tool_output(event["output"])
-                # <details> 默认折叠，summary 显示工具名+检索词
+                name = event["name"]
+                # search_knowledge_base 的 output 是原始检索文本（[来源N：…]格式），
+                # 需要 _format_tool_output 解析为可读的 markdown。
+                # 相关性评估/查询重写 的 output 已在 factory.py 中预先格式化为 markdown，
+                # 直接使用即可，不需要再解析。
+                if name == "search_knowledge_base":
+                    formatted = _format_tool_output(event["output"])
+                else:
+                    formatted = event["output"]
+                icon = _TOOL_ICONS.get(name, "🔍")
+                # <details> 默认折叠，summary 显示工具名+图标
                 tool_msg.content = (
                     f"<details>\n"
-                    f"<summary>🔍 **{event['name']}**</summary>\n\n"
+                    f"<summary>{icon} **{name}**</summary>\n\n"
                     f"{formatted}\n"
                     f"</details>"
                 )

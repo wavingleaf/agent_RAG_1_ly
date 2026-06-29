@@ -7,6 +7,8 @@ langchain-chroma>=0.2.0
 # HuggingFace 本地 Embedding（免费、离线，替代 OpenAI Embedding）
 langchain-huggingface>=0.1.0
 sentence-transformers>=3.0.0
+# LangGraph 确定性图编排（Phase 2：替代 LangChain create_agent）
+langgraph>=0.2.0
 # Chainlit 聊天 UI
 chainlit>=2.0.0
 # LangChain 经典模块（RecursiveCharacterTextSplitter 等在 1.0 被移到此包）

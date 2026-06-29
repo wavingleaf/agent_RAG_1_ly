@@ -9,13 +9,12 @@
 
 | 项目 | 值 |
 |------|-----|
-| 版本号 | **v0.2.0-poc** |
-| 当前阶段 | **RAG 过程可视化（Phase 1，待开工）** |
-| 已完成 | PoC 跑通 → Docker 容器化 → 代码分包（src/） → 5 条基准测试采集 |
-| 下一步 | `agent.invoke()` → `agent.astream()` 流式改造 |
+| 版本号 | **v1.0.0** |
+| 当前阶段 | **Phase 2+3 已完成：LangGraph 图编排 + bge-m3 多语言嵌入** |
+| 已完成 | PoC 跑通 → Docker 容器化 → 代码分包（src/） → Phase 1（流式+可视化） → Phase 2（LangGraph 替代 LangChain create_agent） → Phase 3 首项（Embedding bge-m3 升级） |
+| 下一步 | Phase 3 后续（Rerank 精排）或 Phase 4（词典术语解析 + 四分库） |
 
-> 版本号约定：`主版本.功能阶段.补丁`。`-poc` 表示底层仍是 LangChain `create_agent` 原型。
-> v1.0.0 将在迁移到 LangGraph 后打出。
+> 版本号约定：`主版本.功能阶段.补丁`。v1.0.0 已打出——LangGraph + bge-m3 构成确定性图编排 + 多语言检索的可用基线。
 
 ---
 
@@ -89,7 +88,7 @@ docker exec <容器名> sh -c "<命令>"       # 带 Linux 路径参数时必须
 
 | 数据 | 宿主机路径 | 容器内路径 |
 |------|-----------|-----------|
-| 向量库（Chromadb） | Docker volume `chroma_data` | `/app/chroma_data/v1` |
+| 向量库（Chromadb） | Docker volume `chroma_data` | `/app/chroma_data/bge-m3` |
 | Mod 源码（只读） | `../好mod全部代码供观看/` | `/mod_source/` |
 | 配置文件 | `./config.json` | `/app/config.json` |
 | API Key | `./.env` | `/app/.env`（由 env_file 注入） |
@@ -102,7 +101,7 @@ docker exec <容器名> sh -c "<命令>"       # 带 Linux 路径参数时必须
 
 **GPU 在容器内不可用**：验证 `docker exec rag-chat python -c "import torch; print(torch.cuda.is_available())"`。若输出 `False`：Docker Desktop → Settings → Resources → WSL Integration → 确保已启用。仍不可用则注释掉 `docker-compose.yml` 中 `deploy.resources...` 段，切 CPU Embedding。
 
-**Agent 死循环报错 `GraphRecursionError`**：刷新 Chainlit 网页即可（重新创建会话）。后续 Phase 2 用图的边做硬限制根除此问题。
+**Agent 死循环报错 `GraphRecursionError`**：Phase 2 LangGraph 图的边已固化检索次数（最多 2 次），物理上不可能有第三次搜索。此问题已根除，刷新页面重新提问即可。
 
 ---
 
@@ -130,32 +129,32 @@ http://localhost:8501 →「知识库」标签 → 上传 `.txt` / `.md` / `.lua
 
 ## 三、测试
 
-> 测试案例记录在 [`测试案例_ly.md`](测试案例_ly.md)，编辑后运行 `python 测试案例转json_ly.py` 同步到 JSON。
-> JSON 目前仅备未来 LangSmith 等自动化工具取用，日常不用关心。
+> 测试案例有两份：
+> - v0.2.0-poc 基线：[`测试案例_v0.2.0-poc_ly.md`](测试案例_v0.2.0-poc_ly.md) — LangChain `create_agent` + MiniLM 384d
+> - v1.0.0 当前：[`测试案例_v1.0.0_ly.md`](测试案例_v1.0.0_ly.md) — LangGraph + bge-m3 1024d（含过程块🔍📊✏️）
 
 ### 手工测试流程
 
 1. 打开 http://localhost:8000（聊天端）
-2. 在 [`测试案例_ly.md`](测试案例_ly.md) 中选一个问题，粘贴到聊天框发送
+2. 在测试案例文档中选一个问题，粘贴到聊天框发送
 3. 把 AI 回答粘贴到对应 `<details>` 块中，填写「评价」
-4. 运行 `python 测试案例转json_ly.py` 同步 JSON
-5. 重复
+4. 重复
 
-### 当前测试基线（v0.2.0-poc，5 条）
+### 测试基线概览（v1.0.0，5 条）
 
-| # | 问题 | 评价要点 |
+| # | 问题 | v1.0.0 评价要点 |
 |---|------|---------|
-| 1 | 列举3个棱镜mod的带有护甲值的装备 | 不及格——全面程度差 |
-| 2 | 棱镜 mod 的月光武器是怎么注册的？ | 切片/检索策略导致漏检 |
-| 3 | 怎么制作一个可以随身携带的容器？ | 待评价 |
-| 4 | Beneath the World Below（深埋之下）mod 里有哪些自定义生物？ | 中英文兼容问题 |
-| 5 | DST 中食物的腐败速度怎么修改？ | 比较丰富，及格 |
+| 1 | 列举3个棱镜mod的带有护甲值的装备 | 仍未找到真正目标，提升空间：切片策略、查字典 |
+| 2 | 棱镜 mod 的月光武器是怎么注册的？ | 检索命中 recipes_legion + datafix_legion，有代码但不够完整 |
+| 3 | 怎么制作一个可以随身携带的容器？ | （待评价） |
+| 4 | Beneath the World Below（深埋之下）mod 里有哪些自定义生物？ | bge-m3 对纯英文 Mod 名仍有盲区 |
+| 5 | DST 中食物的腐败速度怎么修改？ | 检索命中 TUNING 常量表，回答含完整示例 |
 
 ### 后续阶段补充测试的时机
 
-- **Phase 1（RAG 可视化）完成后**：重测现有 5 条，对比流式体验；新增 2-3 条覆盖可视化效果
-- **Phase 2（LangGraph）完成后**：重测全部，对比 Agent 循环控制的可靠性
-- **Phase 3（检索质量）完成后**：重测 #1 #4（这两条对检索最敏感），验证提升幅度
+- **Phase 3（Rerank 精排）后**：重测全部，对比检索精度
+- **Phase 4（词典 + 四分库）后**：重测 #1 #2 #4（对检索质量最敏感），验证大版本提升
+- **Phase 5（复杂度分类 + 三策略）后**：新增 2-3 条复杂问题的多轮测试
 
 ---
 
@@ -165,10 +164,11 @@ http://localhost:8501 →「知识库」标签 → 上传 `.txt` / `.md` / `.lua
 |------|------|
 | [`README.md`](README.md) | 项目介绍、快速开始 |
 | [`TODO.md`](TODO.md) | 待办清单（5 个阶段路线图） |
+| [`创新点清单_ly.md`](创新点清单_ly.md) | 项目创新点与改进点全览 |
 | [`CONTEXT.md`](CONTEXT.md) | 领域术语、检索策略、技术选型 |
 | [`src架构设计_ly.md`](src架构设计_ly.md) | src/ 包结构设计与演进路线 |
-| [`项目优化记录_ly.md`](项目优化记录_ly.md) | 已完成优化 + 领域创新点 |
-| [`测试案例_ly.md`](测试案例_ly.md) | 手工测试案例（人类阅读） |
-| [`测试案例_ly.json`](测试案例_ly.json) | 测试案例 JSON（脚本自动生成） |
+| [`项目优化记录_ly.md`](项目优化记录_ly.md) | 已完成工程改进 + 实测发现 |
+| [`测试案例_v0.2.0-poc_ly.md`](测试案例_v0.2.0-poc_ly.md) | v0.2.0-poc 基线测试案例 |
+| [`测试案例_v1.0.0_ly.md`](测试案例_v1.0.0_ly.md) | v1.0.0 当前测试案例（含过程块） |
 | [`参考项目对比分析_ly.md`](参考项目对比分析_ly.md) | 参考项目 SuperMew 对比分析 |
-| [`踩坑记录/`](踩坑记录/) | 9 篇技术踩坑文档 |
+| [`踩坑记录/`](踩坑记录/) | 11 篇技术踩坑文档 |

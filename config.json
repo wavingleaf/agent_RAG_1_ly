@@ -8,11 +8,11 @@
   },
   "embedding": {
     "provider": "huggingface",
-    "model_name": "all-MiniLM-L6-v2",
+    "model_name": "BAAI/bge-m3",
     "hf_endpoint": "https://hf-mirror.com"
   },
   "knowledge_base": {
-    "persist_directory": "/app/chroma_data/v1",
+    "persist_directory": "/app/chroma_data/bge-m3",
     "chunk_size": 500,
     "chunk_overlap": 50
   },

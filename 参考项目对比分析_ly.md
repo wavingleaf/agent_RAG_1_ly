@@ -2,6 +2,7 @@
 
 > 分析对象：
 > - **参考项目**：「agent RAG 参考」(SuperMew) — 开源通用 RAG Agent 项目
+>   - GitHub：[https://github.com/icey1287/SuperMew](https://github.com/icey1287/SuperMew)
 > - **本项目**：「agent_RAG_1_ly」— 面向 DST Mod 开发的领域专用 RAG Agent
 >
 > 分析日期：2026-06-24

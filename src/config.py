@@ -27,7 +27,7 @@ def load_config() -> dict:
         },
         "embedding": {
             "provider": "huggingface",
-            "model_name": "all-MiniLM-L6-v2",
+            "model_name": "BAAI/bge-m3",
             "hf_endpoint": "https://hf-mirror.com",
         },
         "knowledge_base": {
