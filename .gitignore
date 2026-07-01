@@ -5,6 +5,10 @@
 chroma_db/
 chroma_db_v1/
 
+# 向量库 Release 打包（不上传 git，走 GitHub Releases）
+releases/
+rag-chroma-*.tar.gz
+
 # Python
 __pycache__/
 *.py[cod]
